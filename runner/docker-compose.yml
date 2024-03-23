@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # actions-runner-linux-x64-2.314.1.tar.gz
+        RUNNER_VERSION: 2.314.1
+    restart: "no"

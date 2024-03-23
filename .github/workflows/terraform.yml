@@ -1,0 +1,145 @@
+# If you edit this file and submit a pull request: the new version gets executed, not the base one
+name: Terraform
+
+# Triggers this workflow when we create a pull request or push to "prod"
+# synchronize is if you push a new commit to the HEAD ref of a pull request
+# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
+on:
+  push:
+    branches:
+      - prod
+    paths:
+      - infra/**
+      - .github/workflows/terraform.yml
+
+  pull_request:
+    branches:
+      - prod
+    paths:
+      - infra/**
+      - .github/workflows/terraform.yml
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+env:
+  TF_CLOUD_HOSTNAME: "app.terraform.io"
+  TF_CLOUD_ORGANIZATION: "a-mt"
+  TF_WORKSPACE: "test-terraform-cloud-${{ github.base_ref || github.head_ref || github.ref_name}}"
+  TF_TOKEN_app_terraform_io: "${{ secrets.TF_API_TOKEN }}"
+  TF_IN_AUTOMATION: 1
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: self-hosted
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./infra
+
+    steps:
+
+    # Copy the repo into the runner
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Log Info
+      env:
+        BASE_REF: "${{ github.event.pull_request.base.ref }}"
+      run: |
+        echo "Workspace: $TF_WORKSPACE"
+
+    # Get Terraform
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: 1.5.7
+
+    #+---------------------------------
+    #| Always: init
+    #+---------------------------------
+
+    # Check syntax format
+    - name: Terraform Format
+      id: fmt
+      run: terraform fmt -check
+
+    # Install Terraform plugins
+    - name: Terraform Init
+      id: init
+      run: terraform init -input=false
+
+    # Check parameters look good
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate
+
+    #+---------------------------------
+    #| When a pull request is opened: plan
+    #+---------------------------------
+
+    # Run a terraform plan
+    - name: Terraform Plan
+      id: plan
+      if: github.event_name == 'pull_request'
+      run: terraform plan -no-color
+
+    # Add the output of the previous steps as a comment in the pull request
+    # always() is to not bypass this step even if previous steps have failed
+    - name: Comment Terraform Plan
+      uses: actions/github-script@v6
+      if: always() && github.event_name == 'pull_request'
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const status_fmt = "${{ steps.fmt.outcome }}";
+          const status_init = "${{ steps.init.outcome }}";
+          const status_validate = "${{ steps.validate.outcome }}";
+          const status_plan = "${{ steps.plan.outcome }}";
+
+          const get_status_icon = (status) => {
+            switch (status) {
+              case 'success': return '🟢';
+              case 'skipped': return '🟡';
+              default: return '❌';
+            }
+          };
+
+          const output = `*comment added by Github workflow: "${{ github.workflow }}"*
+
+          Workspace: "${{ env.TF_WORKSPACE }}"
+
+          #### 🖌 Terraform Format and Style ${get_status_icon(status_fmt)} \`${status_fmt}\`
+
+          #### ⚙️ Terraform Initialization ${get_status_icon(status_init)} \`${status_init}\`
+
+          #### 🤖 Terraform Validation ${get_status_icon(status_validate)} \`${status_validate}\`
+
+          #### 📖 Terraform Plan ${get_status_icon(status_plan)} \`${status_plan}\`
+
+          <details><summary>Show Plan</summary>
+
+          \`\`\`\n
+          ${{ steps.plan.outputs.stdout }}
+          \`\`\`
+
+          </details>`;
+
+          github.rest.issues.createComment({
+           issue_number: context.issue.number,
+           owner: context.repo.owner,
+           repo: context.repo.repo,
+           body: output
+          })
+
+    #+---------------------------------
+    #| When a we merge/push: apply
+    #+---------------------------------
+
+    # Run a terraform apply
+    - name: Terraform apply
+      if: github.event_name == 'push'
+      run: terraform apply -auto-approve
