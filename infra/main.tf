@@ -1,4 +1,3 @@
-
 # Create a bucket
 # see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/storage_bucket
 resource "google_storage_bucket" "website" {
