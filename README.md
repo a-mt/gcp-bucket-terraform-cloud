@@ -121,7 +121,14 @@ To launch a runner locally (machine running the Github actions):
 
 ## Provision via Github Actions
 
-* To provision the infra, push or create a merge request on the "prod" branch (base: prod, compare: your branch)  
-  Note: Github actions are configured in `.github/workflows/`
+To provision the infra using Terraform:  
 
-[Github Status](https://www.githubstatus.com/)
+- Update files in the /infra directory
+- Create a merge request (or push) in the "prod" branch — base: prod, compare: BRANCH_NAME
+- Check the ouput of the Github Actions + comment added to the PR (might need a page refresh)
+- Merge
+- Go check the Github actions
+
+Note: Github actions are configured in `.github/workflows/`
+
+If actions don't launch: 1. Check [Github Status](https://www.githubstatus.com/), 2. Wait 60s before trying again
