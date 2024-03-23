@@ -1,6 +1,6 @@
 # Google Cloud Platform
 variable "gcp_credentials" {
-  type        = string
+  type          = string
   description = "GCP: Credentials (JSON key content without newlines)"
 }
 variable "gcp_project" {
