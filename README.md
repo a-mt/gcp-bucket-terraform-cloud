@@ -123,3 +123,5 @@ To launch a runner locally (machine running the Github actions):
 
 * To provision the infra, push or create a merge request on the "prod" branch (base: prod, compare: your branch)  
   Note: Github actions are configured in `.github/workflows/`
+
+[Github Status](https://www.githubstatus.com/)
